@@ -519,7 +519,7 @@ def main():
         if not _WANDB_AVAILABLE:
             logger.error("You want to use `wandb` which is not installed yet")
         else:
-            wandb.init(config=args)
+            wandb.init(config={**vars(args), 'config':config.to_dict(), 'tokenizer_config':tokenizer.init_kwargs})
 
     # Training
     if args.do_train:
