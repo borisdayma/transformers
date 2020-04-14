@@ -53,6 +53,11 @@ try:
 except ImportError:
     from tensorboardX import SummaryWriter
 
+try:
+    import wandb
+    _WANDB_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    _WANDB_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +232,10 @@ def train(args, train_dataset, model, tokenizer):
 
                     for key, value in logs.items():
                         tb_writer.add_scalar(key, value, global_step)
+
+                    if args.log_on_wandb and _WANDB_AVAILABLE:
+                        wandb.log(logs)
+
                     print(json.dumps({**logs, **{"step": global_step}}))
 
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
@@ -504,6 +513,13 @@ def main():
     model.to(args.device)
 
     logger.info("Training/evaluation parameters %s", args)
+
+    # Start a wandb run
+    if args.log_on_wandb:
+        if not _WANDB_AVAILABLE:
+            logger.error("You want to use `wandb` which is not installed yet")
+        else:
+            wandb.init(config=args)
 
     # Training
     if args.do_train:

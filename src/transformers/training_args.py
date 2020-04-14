@@ -45,6 +45,8 @@ class TrainingArguments:
     warmup_steps: int = field(default=0, metadata={"help": "Linear warmup over warmup_steps."})
 
     logging_steps: int = field(default=500, metadata={"help": "Log every X updates steps."})
+    log_on_wandb: bool = field(default=False, metadata={"help": "Log on Weights & Biases."})
+    upload_model: bool = field(default=False, metadata={"help": "Upload model when log_on_wandb is True."})
     save_steps: int = field(default=500, metadata={"help": "Save checkpoint every X updates steps."})
     save_total_limit: Optional[int] = field(
         default=None,
