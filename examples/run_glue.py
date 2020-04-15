@@ -234,7 +234,8 @@ def train(args, train_dataset, model, tokenizer):
                         tb_writer.add_scalar(key, value, global_step)
 
                     if args.log_on_wandb and _WANDB_AVAILABLE:
-                        wandb.log(logs)
+                        epoch = global_step / (len(train_dataloader) // args.gradient_accumulation_steps)
+                        wandb.log({**logs, "epoch": epoch})
 
                     print(json.dumps({**logs, **{"step": global_step}}))
 
@@ -326,7 +327,7 @@ def evaluate(args, model, tokenizer, prefix=""):
         elif args.output_mode == "regression":
             preds = np.squeeze(preds)
         result = compute_metrics(eval_task, preds, out_label_ids)
-        results.update(result)
+        results.update({'loss':eval_loss, **result})
 
         output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
         with open(output_eval_file, "w") as writer:
@@ -568,8 +569,14 @@ def main():
             model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
             model.to(args.device)
             result = evaluate(args, model, tokenizer, prefix=prefix)
+
+            # prepare last evaluation results
+            logs = {"eval_{}".format(k):v for k, v in result.items()}
+
             result = dict((k + "_{}".format(global_step), v) for k, v in result.items())
-            results.update(result)
+            results.update(result)        
+        if args.log_on_wandb and _WANDB_AVAILABLE:
+            wandb.log({**logs, "epoch": args.num_train_epochs})
 
     return results
 
