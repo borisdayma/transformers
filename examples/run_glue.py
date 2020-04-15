@@ -546,6 +546,10 @@ def main():
         # Good practice: save your training arguments together with the trained model
         torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
+        # Upload trained model and relevant files (no checkpoints)
+        if args.log_on_wandb and args.upload_model and _WANDB_AVAILABLE:
+            wandb.save(os.path.join(args.output_dir, "*.*"))
+
         # Load a trained model and vocabulary that you have fine-tuned
         model = AutoModelForSequenceClassification.from_pretrained(args.output_dir)
         tokenizer = AutoTokenizer.from_pretrained(args.output_dir)
