@@ -518,7 +518,7 @@ def main():
     # Start a wandb run
     if args.log_on_wandb:
         if not _WANDB_AVAILABLE:
-            logger.error("You want to use `wandb` which is not installed yet")
+            logger.error("To use Weights & Biases logging, import wandb.")
         else:
             wandb.init(config={**vars(args), 'config':config.to_dict(), 'tokenizer_config':tokenizer.init_kwargs})
 
