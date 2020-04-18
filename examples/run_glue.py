@@ -522,6 +522,8 @@ def main():
         else:
             wandb.init(config={**vars(args), 'script': os.path.basename(__file__), 'config':config.to_dict(),
                                'tokenizer_config':tokenizer.init_kwargs})
+        # keep track of model topology and gradients
+        wandb.watch(model)
 
     # Training
     if args.do_train:
