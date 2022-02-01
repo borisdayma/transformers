@@ -114,7 +114,7 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
 
         if load_on_cpu:
             # init weights on CPU
-            init_fn = jax.jit(self.init_weights, static_argnums=(1,), backend="cpu")
+            init_fn = jax.jit(self.init_weights, static_argnames="input_shape", backend="cpu")
         else:
             init_fn = self.init_weigths
 
