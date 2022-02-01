@@ -95,6 +95,8 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
         input_shape: Tuple = (1, 1),
         seed: int = 0,
         dtype: jnp.dtype = jnp.float32,
+        abstract_init: bool = False,
+        load_on_cpu: bool = False,
     ):
         if config is None:
             raise ValueError("config cannot be None")
@@ -110,7 +112,19 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
         self.key = PRNGKey(seed)
         self.dtype = dtype
 
+        if load_on_cpu:
+            # init weights on CPU
+            init_fn = jax.jit(self.init_weights, static_argnums=(1,), backend="cpu")
+        else:
+            init_fn = self.init_weigths
+
         # randomly initialized parameters
+        if abstract_init:
+            # only set shape and dtype, load parameters separately
+            random_params = jax.eval_shape(init_fn, rng=self.key, input_shape=input_shape)
+        else:
+            random_params = init_fn(rng=self.key, input_shape=input_shape)
+
         random_params = self.init_weights(self.key, input_shape)
 
         # save required_params as set
@@ -414,6 +428,8 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
         revision = kwargs.pop("revision", None)
         from_pipeline = kwargs.pop("_from_pipeline", None)
         from_auto_class = kwargs.pop("_from_auto", False)
+        abstract_init = kwargs.pop("abstract_init", True)
+        load_on_cpu = kwargs.pop("load_on_cpu", False)
 
         user_agent = {"file_type": "model", "framework": "flax", "from_auto_class": from_auto_class}
         if from_pipeline is not None:
@@ -550,8 +566,8 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
         else:
             resolved_archive_file = None
 
-        # init random models
-        model = cls(config, *model_args, **model_kwargs)
+        # init random models, no need to set weigths
+        model = cls(config, *model_args, **model_kwargs, abstract_init=abstract_init, load_on_cpu=load_on_cpu)
 
         if from_pt:
             state = load_pytorch_checkpoint_in_flax_state_dict(model, resolved_archive_file)
@@ -572,6 +588,8 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
                                 raise ValueError from e
                     except (UnicodeDecodeError, ValueError):
                         raise EnvironmentError(f"Unable to convert {archive_file} to Flax deserializable object. ")
+            if not load_on_cpu:
+                state = jax.tree_util.tree_map(jnp.array, state)
 
         # if model is base model only use model_prefix key
         if cls.base_model_prefix not in dict(model.params) and cls.base_model_prefix in state:
@@ -595,15 +613,15 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
         mismatched_keys = []
         for key in state.keys():
             if key in random_state and state[key].shape != random_state[key].shape:
-                if ignore_mismatched_sizes:
+                if ignore_mismatched_sizes and not abstract_init:
                     mismatched_keys.append((key, state[key].shape, random_state[key].shape))
                     state[key] = random_state[key]
                 else:
                     raise ValueError(
                         f"Trying to load the pretrained weight for {key} failed: checkpoint has shape "
                         f"{state[key].shape} which is incompatible with the model shape {random_state[key].shape}. "
-                        "Using `ignore_mismatched_sizes=True` if you really want to load this checkpoint inside this "
-                        "model."
+                        "Using `ignore_mismatched_sizes=True` and `abstract_init=False` if you really want to load "
+                        "this checkpoint inside this model."
                     )
 
         # add missing keys as random parameters
