@@ -114,18 +114,17 @@ class FlaxPreTrainedModel(PushToHubMixin, FlaxGenerationMixin):
 
         if load_on_cpu:
             # init weights on CPU
-            init_fn = jax.jit(self.init_weights, static_argnames="input_shape", backend="cpu")
+            init_fn = jax.jit(self.init_weights, static_argnums=(1,), backend="cpu")
         else:
             init_fn = self.init_weigths
 
         # randomly initialized parameters
         if abstract_init:
             # only set shape and dtype, load parameters separately
-            random_params = jax.eval_shape(init_fn, rng=self.key, input_shape=input_shape)
+            init_fn = partial(init_fn, input_shape=input_shape)
+            random_params = jax.eval_shape(init_fn, self.key)
         else:
-            random_params = init_fn(rng=self.key, input_shape=input_shape)
-
-        random_params = self.init_weights(self.key, input_shape)
+            random_params = init_fn(self.key, input_shape)
 
         # save required_params as set
         self._required_params = set(flatten_dict(unfreeze(random_params)).keys())
