@@ -1478,11 +1478,11 @@ class FlaxBartForConditionalGeneration(FlaxBartPreTrainedModel):
         # initializing the cache
         batch_size, seq_length = decoder_input_ids.shape
 
-        past_key_values = self.init_cache(batch_size, max_length, encoder_outputs)
+        past_key_values = self.init_cache(batch_size, max_length - 1, encoder_outputs)
         # Note that usually one would have to put 0's in the attention_mask for x > input_ids.shape[-1] and x < cache_length.
         # But since the decoder uses a causal mask, those positions are masked anyways.
         # Thus we can create a single static attention_mask here, which is more efficient for compilation
-        extended_attention_mask = jnp.ones((batch_size, max_length), dtype="i4")
+        extended_attention_mask = jnp.ones((batch_size, max_length - 1), dtype="i4")
         if decoder_attention_mask is not None:
             position_ids = decoder_attention_mask.cumsum(axis=-1) - 1
             extended_attention_mask = lax.dynamic_update_slice(extended_attention_mask, decoder_attention_mask, (0, 0))
